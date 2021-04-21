@@ -1,0 +1,51 @@
+---
+title: "ecoevodynamo_example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ecoevodynamo_example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(ecoevodynamo)
+```
+
+We start by going over the basics of `torch`, as you will need to specify your ecological dynamics model using the `torch` library. As an example, we will implement a simple Macarthur-Levins competition model for our ecological dynamics, which we then covert intoa full eco-evolutionary simulation model using `ecoevodynamo`. The main function of `ecoevodynamo` is `eed_create_ode()`, which takes an ecological model ODE specified in `torch` and return a function specifying an ODE that includes all ecological dynamics but in addition calculates the evolutionary gradients for species traits used in the ecological ODE. This allows simulation of evolutionary and ecological dynamics simultaneously.
+The thing that we need for `eed_create_ode()`, is a function that takes `torch` tensors as arguments, and returns `torch` tensors. More specifically, the function takes a set of tensors representing a set of species population sizes, some set of traits of those species, any 'additional dynamic elements' and any parameters, and then returns the instantaneous rate of change for the dynamic ecological elements of the model (which include the population size and the 'additional dynamic elements'). The function should have the following general structure: `function(N, other_dyn, traits, params, t, ...)`.
+
+```{r setup_ml_model}
+N_spec <- 20
+
+Ns <- torch_tensor(matrix(1:N_spec, nrow = N_spec, ncol = 1))
+## three traits
+traits <- torch_randn(N_spec, 3)
+params <- list(comp = torch_scalar_tensor(0.5),
+               K = torch_scalar_tensor(5),
+               r = torch_scalar_tensor(1))
+
+mac_lev <- function(Ns, other_dyn, traits, params, t, ...) {
+  ## calculate distance between all pairs of species
+  dists <- torch_cdist(traits, traits)  
+  competition <- torch_exp((-(dists^2) / (2 * params$comp^2)))
+  dN_dt <- params$r * Ns * (1 - (torch_sum(Ns * competition, 2, keepdim = TRUE) / params$K))
+  
+  return(list(Ns = dN_dt))
+}
+
+traits$requires_grad <- TRUE
+
+test <- mac_lev(Ns, NULL, traits, params, NULL)
+
+sel_grad <- autograd_grad(test$Ns, traits, torch_ones_like(test$Ns))
+
+
+```
+
