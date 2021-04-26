@@ -1,5 +1,8 @@
 ## specify a simple model to use in tests
 
+set.seed(321)
+torch_manual_seed(321)
+
 mac_lev <- function(Ns, traits, params, t, ...) {
   ## calculate distance between all pairs of species
   dists <- torch_cdist(traits, traits)

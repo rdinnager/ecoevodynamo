@@ -47,7 +47,7 @@ eed_solver <- function(ecodyn, example_inputs = NULL) {
 
 }
 
-extract_examples <- function(ecodyn_quo, example_inputs) {
+extract_examples <- function(ecodyn_quo, example_inputs = NULL) {
   if(rlang::quo_is_call(ecodyn_quo)) {
     ## generate example input from call arguments
     if(is.null(example_inputs)) {
@@ -66,7 +66,7 @@ extract_examples <- function(ecodyn_quo, example_inputs) {
       ecodyn_fun <- ecodyn_eval
     } else {
       if(rlang::is_character(ecodyn_eval)) {
-        ecodyn_fun <- get(ecodyn_eval)
+        ecodyn_fun <- get(ecodyn_eval, rlang::caller_env())
       } else {
         rlang::abort("ecodyn argument must be a function call, a function, or a function name")
       }
