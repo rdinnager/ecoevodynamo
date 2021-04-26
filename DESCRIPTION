@@ -8,8 +8,7 @@ Authors@R:
            email = "r.dinnage@gmail.com",
            comment = c(ORCID = "YOUR-ORCID-ID"))
 Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to
-    pick a license
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
@@ -17,8 +16,15 @@ RoxygenNote: 7.1.1
 Depends: 
     torch
 Imports: 
-    deSolve
+    deSolve,
+    rlang (>= 0.1.2),
+    zeallot
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+    roxygen2,
+    testthat (>= 3.0.0),
+    spelling
 VignetteBuilder: knitr
+Config/testthat/edition: 3
+Language: en-US

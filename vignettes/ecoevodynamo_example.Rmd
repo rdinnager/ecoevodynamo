@@ -18,34 +18,76 @@ knitr::opts_chunk$set(
 library(ecoevodynamo)
 ```
 
-We start by going over the basics of `torch`, as you will need to specify your ecological dynamics model using the `torch` library. As an example, we will implement a simple Macarthur-Levins competition model for our ecological dynamics, which we then covert intoa full eco-evolutionary simulation model using `ecoevodynamo`. The main function of `ecoevodynamo` is `eed_create_ode()`, which takes an ecological model ODE specified in `torch` and return a function specifying an ODE that includes all ecological dynamics but in addition calculates the evolutionary gradients for species traits used in the ecological ODE. This allows simulation of evolutionary and ecological dynamics simultaneously.
-The thing that we need for `eed_create_ode()`, is a function that takes `torch` tensors as arguments, and returns `torch` tensors. More specifically, the function takes a set of tensors representing a set of species population sizes, some set of traits of those species, any 'additional dynamic elements' and any parameters, and then returns the instantaneous rate of change for the dynamic ecological elements of the model (which include the population size and the 'additional dynamic elements'). The function should have the following general structure: `function(N, other_dyn, traits, params, t, ...)`.
+We start by going over the basics of `torch`, as you will need to specify your ecological dynamics model using the `torch` library. As an example, we will implement a simple Macarthur-Levins competition model for our ecological dynamics, which we then covert into a full eco-evolutionary simulation model using `ecoevodynamo`. The main function of `ecoevodynamo` is `eed_create_ode()`, which takes an ecological model ODE specified in `torch` and return a function specifying an ODE that includes all ecological dynamics but in addition calculates the evolutionary gradients for species traits used in the ecological ODE. This allows simulation of evolutionary and ecological dynamics simultaneously.
+The thing that we need for `eed_create_ode()`, is a function that takes `torch` tensors as arguments, and returns `torch` tensors. More specifically, the function takes a set of tensors representing a set of species population sizes, some set of traits of those species, any 'additional dynamic elements' and any parameters, and then returns the instantaneous rate of change for the dynamic ecological elements of the model (which include the population size and the 'additional dynamic elements'). The function should have the following general structure: `function(N, other_dyn, traits, params, G, t, ...)`. Not all of the arguments are required. If you don't need any of them, you can simply omit them from your function specification. We will explain what all of the possible arguments mean later in this vignette, but for now let's try and get a simple model to work.
+
+Here is a function which takes a column vector of population sizes (`Ns`), and a matrix of species traits, along with a list of parameters, and returns $\frac{\partial{Ns}}{\partial{t}}$, that is the time derivative of `Ns`. In other words, it specifies a sytem of ordinary differential equations (ODEs), describing the ecological dynamics of a set of species over time. The basic Macarthur-Levins model is pretty simple, it is just the multispecies Lotka-Volterra competition model, accept the competition coefficients between each pair of species is a function of the distance between the species in trait space (in this case a simple Gaussian function of euclidean distance).
 
 ```{r setup_ml_model}
+mac_lev <- function(Ns, traits, params) {
+  ## calculate distance between all pairs of species
+  dists <- torch_cdist(traits, traits)
+  competition <- torch_exp((-(dists^2) / (2 * params$comp^2)))
+  dN_dt <- params$r * Ns * (1 - (torch_sum(Ns * competition, dim = 2, keepdim = TRUE) / params$K))
+  
+  return(list(Ns = dN_dt))
+}
+```
+
+Now, some parts of that function will need further explanation as you may not be that familiar with `torch` yet. For one thing, for efficiency and to simplify the code it takes advantage of `torch`'s 'broadcasting' rules. The expression in question is `Ns * competition`. The first thing you need to know is that `torch_cdist()` is a function which calculates a pairwise distance matrix on tensors, such that `competition` will be an `nrow(traits) * nrow(traits)` matrix, each element `competition[i, j]` of which gives the competition coefficient between species `i` and species `j`. To see how broadcasting works, let's create some example objects that we will run our function on. We need our species population size matrix `Ns`, our species traits matrix `traits`, and a list of model parameters `params`. In order to work with `torch` we need to use `torch` 'tensors', a data structure similar to an array in R. Tensors are easy to create from R objects -- just use `torch_tensor`. We will setup a system of 20 species for testing.
+
+```{r setup_test_tensors}
 N_spec <- 20
 
-Ns <- torch_tensor(matrix(1:N_spec, nrow = N_spec, ncol = 1))
+Ns <- torch_rand(N_spec, 1L)
 ## three traits
 traits <- torch_randn(N_spec, 3)
 params <- list(comp = torch_scalar_tensor(0.5),
                K = torch_scalar_tensor(5),
                r = torch_scalar_tensor(1))
+```
 
-mac_lev <- function(Ns, other_dyn, traits, params, t, ...) {
-  ## calculate distance between all pairs of species
-  dists <- torch_cdist(traits, traits)  
-  competition <- torch_exp((-(dists^2) / (2 * params$comp^2)))
-  dN_dt <- params$r * Ns * (1 - (torch_sum(Ns * competition, 2, keepdim = TRUE) / params$K))
-  
-  return(list(Ns = dN_dt))
-}
+So, let's print out our `Ns` and `traits` tensors and see what they look like.
 
-traits$requires_grad <- TRUE
+```{r print_tens}
+Ns
+traits
+```
 
-test <- mac_lev(Ns, NULL, traits, params, NULL)
+We can see that `Ns` is a column vector, that is, a matrix with `N_spec` rows and 1 column. `traits` is a `N_spec` by 3 matrix, which means it represents 3 different traits, with values for each species (here generated randomly). 
 
-sel_grad <- autograd_grad(test$Ns, traits, torch_ones_like(test$Ns))
+So, back to our question about broadcasting. What does broadcasting mean? Broadcasting is a way that objects with different dimensions can be added or multiplied together (or any other element-wise operation) in certain circumstances. It works by 'recycling' the smaller object to match the dimensions of the larger object, based on certain rules. The rules of broadcasting for `torch` are described in [this blog post](https://blogs.rstudio.com/ai/posts/2020-10-01-torch-network-from-scratch/#broadcasting). It can be a little confusing sometimes, so I always like to test that I've understood the expected broadcasting behaviour. Here, since the first dimensions of both `Ns` and `competition` tensors match (both equal to `N_spec`), but `Ns`'s second dimension has a size of 1, it makes sense that the single column will be recycled into `N_spec` columns to match `competition`. To check this is correct, we can create dummy tensors that will make the result of broadcasting obvious. Here we will make `Ns` a sequence going from 1 to `r N_spec`, and `competition` a matrix of all 1s.
 
+```{r test_broadcasting}
+
+Ns2 <- torch_tensor(matrix(1:N_spec, nrow = N_spec, ncol = 1L))
+competition2 <- torch_ones(N_spec, N_spec)
+
+Ns2 * competition2
 
 ```
+
+So that shows pretty clearly that the broadcasting works by recycling the `Ns` single column into `N_spec` columns. So what does this mean in the model? It means we have efficiently calculated the effect that each species has on each other species in a single expression, recalling that in the Lotka-Volterra competition model, the effect of a species on another species is a negative function of its competition coefficient times its population size. We can then just sum each column to calculate the overall effect of competition on each species (which is what `torch_sum` does, where the argument `dim = 2` says to sum along the 2nd dimension -- the columns). The rest of the expression in question is about adding density dependence through a carrying capacity parameter `params$K`, and multiplying by an instantaneous rate of increase parameter `params$r`. So we have a very compact function for a model, which should also be pretty efficient, since `torch` is fast, and vectorised operations are optimised. Now we can see if our model function 'works' by running it on our test objects and see if produces output of the expected shape.
+
+```{r test_ecodyn}
+mac_lev(Ns, traits, params)
+```
+
+Indeed, it returns a list of a single tensor of the same shape as `Ns`, with the name "Ns". This is what `ecoevodynamo` expects -- each dynamic variable input into the function should have a corresponding element in the returned list, which should have the same name as the input argument, and should have the same dimensions as the input object. The returned values should be the time derivative of that variable. The arguments that can potentially be dynamic are `Ns`, `other_dyn` (which stands for other 'dynamic' variables, besides species population sizes), and possibly `G`, but we will talk more about that later. For now we should say that `Ns` is kept separate because as population sizes this is a special variable, because it contains the information necessary to calculate fitness, and ultimately, selection gradients for our traits. Note that `traits` is always going to be a dynamic variable, but the derivatives for traits is generated automatically by `ecoevodynamo` using automatic differentiation, and so should never have an entry in the returned list.
+
+
+```{r}
+traits$requires_grad <- TRUE
+
+test <- mac_lev(Ns, traits, params)
+
+sel_grad <- autograd_grad(test$Ns, traits, torch_ones_like(test$Ns))
+sel_grad
+```
+
+
+
+
+
+
 
