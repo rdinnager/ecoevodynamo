@@ -12,6 +12,8 @@
 #' `NA`s, just make sure they have the correct dimensions, e.g. the first dimension will
 #' generally have a size equal to the number of species you want to simulate for th
 #' `Ns` and the `traits` arguments -- see details).
+#' @param init_examples Should the \code{example_inputs} be used as default starting values
+#' for future simulation runs?
 #'
 #' @return A set of functions that can be used to simulate the ecoevolutionary system. This
 #' object is used by [eed_run()] to run the simulation.
@@ -37,13 +39,41 @@
 #' params <- list(comp = torch_scalar_tensor(0.5),
 #'                K = torch_scalar_tensor(5),
 #'                r = torch_scalar_tensor(1))
-eed_solver <- function(ecodyn, example_inputs = NULL) {
+eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = FALSE) {
 
   ecodyn_quo <- rlang::enquo(ecodyn)
 
   c(ecodyn, example_inputs) %<-% extract_examples(ecodyn_quo, example_inputs)
 
-  list(ecodyn_fun = ecodyn, example_inputs = example_inputs)
+  assert_ecodyn(ecodyn)
+
+  example_inputs <- example_inputs[names(example_inputs) %in%
+                                     c("Ns",
+                                       "other_dyn",
+                                       "traits",
+                                       "G")]
+
+  dims <- get_dims(example_inputs)
+
+  ode_fun <- function(t, y, parms, ...) {
+    inputs <- lapply(seq_len(ncol(dims$inds)),
+                     function(x)
+                       torch_tensor(y[dims$inds[1 , x]:dims$inds[2 , x]])$reshape(dims$dims[[x]])) %>%
+      setNames(names(dims$dims))
+
+    inputs <- c(inputs, list(params = parms))
+
+    inputs$traits$requires_grad <- TRUE
+
+    calc <- rlang::exec(ecodyn, !!!inputs)
+
+    sel_grad <- autograd_grad(calc$Ns,
+                              inputs$traits,
+                              torch_ones_like(calc$Ns))
+
+  }
+
+  list(ecodyn_fun = ecodyn, example_inputs = example_inputs, dims = dims)
 
 }
 
@@ -74,4 +104,12 @@ extract_examples <- function(ecodyn_quo, example_inputs = NULL) {
   }
 
   list(ecodyn_fun, example_inputs)
+}
+
+get_dims <- function(example_inputs) {
+  dims <- lapply(example_inputs, dim)
+  ends <- cumsum(sapply(dims, prod))
+  starts <- c(0, ends[-length(ends)]) + 1L
+  names(starts) <- names(ends)
+  list(dims = dims, inds = rbind(starts, ends))
 }
