@@ -124,7 +124,7 @@
     <p>Create a ode solver for ecoevolutionary dynamics from an ode with only ecological dynamics</p>
     </div>
 
-    <pre class="usage"><span class='fu'>eed_solver</span><span class='op'>(</span><span class='va'>ecodyn</span>, example_inputs <span class='op'>=</span> <span class='cn'>NULL</span><span class='op'>)</span></pre>
+    <pre class="usage"><span class='fu'>eed_solver</span><span class='op'>(</span><span class='va'>ecodyn</span>, example_inputs <span class='op'>=</span> <span class='cn'>NULL</span>, init_examples <span class='op'>=</span> <span class='cn'>FALSE</span><span class='op'>)</span></pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
@@ -145,6 +145,11 @@ were using for testing the <code>ecodyn</code> function, or vectors, matrices or
 <code>NA</code>s, just make sure they have the correct dimensions, e.g. the first dimension will
 generally have a size equal to the number of species you want to simulate for th
 <code>Ns</code> and the <code>traits</code> arguments -- see details).</p></td>
+    </tr>
+    <tr>
+      <th>init_examples</th>
+      <td><p>Should the <code>example_inputs</code> be used as default starting values
+for future simulation runs?</p></td>
     </tr>
     </table>
 
