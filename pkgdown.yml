@@ -1,0 +1,10 @@
+pandoc: 2.7.3
+pkgdown: 1.6.1
+pkgdown_sha: ~
+articles:
+  ecoevodynamo_example: ecoevodynamo_example.html
+last_built: 2021-04-27T13:37Z
+urls:
+  reference: https://rdinnager.github.io/ecoevodynamo/reference
+  article: https://rdinnager.github.io/ecoevodynamo/articles
+
