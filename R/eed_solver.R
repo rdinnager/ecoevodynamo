@@ -41,7 +41,7 @@
 #' params <- list(comp = torch_scalar_tensor(0.5),
 #'                K = torch_scalar_tensor(5),
 #'                r = torch_scalar_tensor(1))
-eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = FALSE) {
+eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = TRUE) {
 
   ecodyn_quo <- rlang::enquo(ecodyn)
 
@@ -57,11 +57,25 @@ eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = FALSE) {
 
   dims <- get_dims(example_inputs)
 
-  ode_fun <- function(t, y, parms, ...) {
+
+  vector_to_tensor_list <- function(y) {
     inputs <- setNames(lapply(seq_len(ncol(dims$inds)),
-                     function(x)
-                       torch::torch_tensor(y[dims$inds[1 , x]:dims$inds[2 , x]])$reshape(dims$dims[[x]])),
-                     names(dims$dims))
+                              function(x)
+                                torch::torch_tensor(y[dims$inds[1 , x]:dims$inds[2 , x]])$reshape(dims$dims[[x]])),
+                       names(dims$dims))
+    inputs
+  }
+
+  tensor_list_to_vector <- function(tensors) {
+    dy <- lapply(tensors,
+                 function(x) as.vector(as.array(x)))
+    dy <- unlist(dy)
+    dy
+  }
+
+
+  ode_fun <- function(t, y, parms, progress = NULL, last_t = NULL) {
+    inputs <- vector_to_tensor_list(y)
 
     inputs <- c(inputs, list(params = parms))
 
@@ -73,9 +87,28 @@ eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = FALSE) {
                                      inputs$traits,
                                      torch::torch_ones_like(calc$Ns))
 
+    dy <- tensor_list_to_vector(c(calc, setNames(sel_grad, "traits")))
+
+    .sim_state$current <- inputs
+
+    if(!is.null(progress)) {
+      progress$update(t / last_t)
+    }
+
+    return(list(y))
+
   }
 
-  list(ecodyn_fun = ecodyn, example_inputs = example_inputs, dims = dims)
+  res <- list(vector_to_tensor_list = vector_to_tensor_list,
+              tensor_list_to_vector = tensor_list_to_vector,
+              ode_fun = ode_fun)
+
+  if(init_examples) {
+    res$init <- example_inputs
+  }
+
+  class(res) <- "eed_solver"
+  res
 
 }
 

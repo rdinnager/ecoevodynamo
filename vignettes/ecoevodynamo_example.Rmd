@@ -77,12 +77,19 @@ Indeed, it returns a list of a single tensor of the same shape as `Ns`, with the
 
 
 ```{r}
-traits$requires_grad <- TRUE
 
-test <- mac_lev(Ns, traits, params)
+test <- eed_solver(mac_lev(Ns, traits, params))
 
-sel_grad <- autograd_grad(test$Ns, traits, torch_ones_like(test$Ns))
-sel_grad
+time <- bench::mark(
+test$ode_fun(1,
+             test$tensor_list_to_vector(list(Ns = Ns, traits = traits)),
+             params),
+min_time = Inf,
+max_iterations = 1000
+)
+
+time
+
 ```
 
 

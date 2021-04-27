@@ -18,6 +18,7 @@ RoxygenNote: 7.1.1
 Depends: 
     torch
 Imports: 
+    progress,
     deSolve,
     rlang (>= 0.1.2),
     zeallot
@@ -27,7 +28,8 @@ Suggests:
     roxygen2,
     testthat (>= 3.0.0),
     spelling,
-    covr
+    covr,
+    bench
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Language: en-US
