@@ -81,14 +81,14 @@ Indeed, it returns a list of a single tensor of the same shape as `Ns`, with the
 test <- eed_solver(mac_lev(Ns, traits, params))
 
 time <- bench::mark(
-test$ode_fun(1,
-             test$tensor_list_to_vector(list(Ns = Ns, traits = traits)),
-             params),
-min_time = Inf,
-max_iterations = 1000
+  res <- test$ode_fun(1,
+               test$tensor_list_to_vector(list(Ns = Ns, traits = traits)),
+               params),
+  min_time = Inf,
+  max_iterations = 1000
 )
 
-time
+test$vector_to_tensor_list(res[[1]])
 
 ```
 

@@ -95,7 +95,7 @@ eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = TRUE) {
       progress$update(t / last_t)
     }
 
-    return(list(y))
+    return(list(dy))
 
   }
 
