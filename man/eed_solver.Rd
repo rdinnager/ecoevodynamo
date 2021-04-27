@@ -4,7 +4,7 @@
 \alias{eed_solver}
 \title{Create a ode solver for ecoevolutionary dynamics from an ode with only ecological dynamics}
 \usage{
-eed_solver(ecodyn, example_inputs = NULL)
+eed_solver(ecodyn, example_inputs = NULL, init_examples = FALSE)
 }
 \arguments{
 \item{ecodyn}{A call to the function specifying ecological dynamics with example inputs
@@ -19,6 +19,9 @@ were using for testing the \code{ecodyn} function, or vectors, matrices or array
 \code{NA}s, just make sure they have the correct dimensions, e.g. the first dimension will
 generally have a size equal to the number of species you want to simulate for th
 \code{Ns} and the \code{traits} arguments -- see details).}
+
+\item{init_examples}{Should the \code{example_inputs} be used as default starting values
+for future simulation runs?}
 }
 \value{
 A set of functions that can be used to simulate the ecoevolutionary system. This

@@ -19,6 +19,8 @@
 #' object is used by [eed_run()] to run the simulation.
 #' @export
 #' @importFrom zeallot %<-%
+#' @importFrom stats setNames
+#' @importFrom torch torch_tensor torch_ones_like autograd_grad
 #'
 #' @examples
 #' mac_lev <- function(Ns, traits, params, t, ...) {
@@ -56,10 +58,10 @@ eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = FALSE) {
   dims <- get_dims(example_inputs)
 
   ode_fun <- function(t, y, parms, ...) {
-    inputs <- lapply(seq_len(ncol(dims$inds)),
+    inputs <- setNames(lapply(seq_len(ncol(dims$inds)),
                      function(x)
-                       torch_tensor(y[dims$inds[1 , x]:dims$inds[2 , x]])$reshape(dims$dims[[x]])) %>%
-      setNames(names(dims$dims))
+                       torch::torch_tensor(y[dims$inds[1 , x]:dims$inds[2 , x]])$reshape(dims$dims[[x]])),
+                     names(dims$dims))
 
     inputs <- c(inputs, list(params = parms))
 
@@ -67,9 +69,9 @@ eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = FALSE) {
 
     calc <- rlang::exec(ecodyn, !!!inputs)
 
-    sel_grad <- autograd_grad(calc$Ns,
-                              inputs$traits,
-                              torch_ones_like(calc$Ns))
+    sel_grad <- torch::autograd_grad(calc$Ns,
+                                     inputs$traits,
+                                     torch::torch_ones_like(calc$Ns))
 
   }
 
