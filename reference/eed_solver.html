@@ -124,7 +124,7 @@
     <p>Create a ode solver for ecoevolutionary dynamics from an ode with only ecological dynamics</p>
     </div>
 
-    <pre class="usage"><span class='fu'>eed_solver</span><span class='op'>(</span><span class='va'>ecodyn</span>, example_inputs <span class='op'>=</span> <span class='cn'>NULL</span>, init_examples <span class='op'>=</span> <span class='cn'>FALSE</span><span class='op'>)</span></pre>
+    <pre class="usage"><span class='fu'>eed_solver</span><span class='op'>(</span><span class='va'>ecodyn</span>, example_inputs <span class='op'>=</span> <span class='cn'>NULL</span>, jit <span class='op'>=</span> <span class='cn'>FALSE</span><span class='op'>)</span></pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
@@ -134,7 +134,7 @@
       <td><p>A call to the function specifying ecological dynamics with example inputs
 as arguments (see details for how the function should be specified). Can also the function
 itself, or the name of a function (of class character), in which case <code>example_inputs</code> must
-not be <code>NULL</code>.</p></td>
+not be <code>NULL</code>. The general form will be <code>ecodyn(Ns, [traits, t, G, ...])</code></p></td>
     </tr>
     <tr>
       <th>example_inputs</th>
@@ -144,12 +144,8 @@ arguments that have the dimensions of the desired system (these could be objects
 were using for testing the <code>ecodyn</code> function, or vectors, matrices or arrays filled with
 <code>NA</code>s, just make sure they have the correct dimensions, e.g. the first dimension will
 generally have a size equal to the number of species you want to simulate for th
-<code>Ns</code> and the <code>traits</code> arguments -- see details).</p></td>
-    </tr>
-    <tr>
-      <th>init_examples</th>
-      <td><p>Should the <code>example_inputs</code> be used as default starting values
-for future simulation runs?</p></td>
+<code>Ns</code> and the <code>traits</code> arguments -- see details). Make sure the <code>example_inputs</code>
+actually do work because this is necessary to set up the model correctly.</p></td>
     </tr>
     </table>
 
