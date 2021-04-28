@@ -4,16 +4,15 @@
 #' @param ecodyn A call to the function specifying ecological dynamics with example inputs
 #' as arguments (see details for how the function should be specified). Can also the function
 #' itself, or the name of a function (of class character), in which case `example_inputs` must
-#' not be `NULL`.
+#' not be `NULL`. The general form will be \code{ecodyn(Ns, [traits, t, G, ...])}
 #' @param example_inputs A named list where the names correspond to function arguments
 #' of the function specified in `ecodyn` and the elements are example inputs for those
 #' arguments that have the dimensions of the desired system (these could be objects you
 #' were using for testing the `ecodyn` function, or vectors, matrices or arrays filled with
 #' `NA`s, just make sure they have the correct dimensions, e.g. the first dimension will
 #' generally have a size equal to the number of species you want to simulate for th
-#' `Ns` and the `traits` arguments -- see details).
-#' @param init_examples Should the \code{example_inputs} be used as default starting values
-#' for future simulation runs?
+#' `Ns` and the `traits` arguments -- see details). Make sure the \code{example_inputs}
+#' actually do work because this is necessary to set up the model correctly.
 #'
 #' @return A set of functions that can be used to simulate the ecoevolutionary system. This
 #' object is used by [eed_run()] to run the simulation.
@@ -41,7 +40,7 @@
 #' params <- list(comp = torch_scalar_tensor(0.5),
 #'                K = torch_scalar_tensor(5),
 #'                r = torch_scalar_tensor(1))
-eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = TRUE) {
+eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE) {
 
   ecodyn_quo <- rlang::enquo(ecodyn)
 
@@ -49,13 +48,14 @@ eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = TRUE) {
 
   assert_ecodyn(ecodyn)
 
-  example_inputs <- example_inputs[names(example_inputs) %in%
-                                     c("Ns",
-                                       "other_dyn",
-                                       "traits",
-                                       "G")]
+  dynamic <- extract_dynamic(ecodyn, example_inputs)
+  param_names <- names(example_inputs)[!names(example_inputs) %in%
+                                    c(dynamic, "t", "G", "traits")]
 
-  dims <- get_dims(example_inputs)
+  dynamic_inputs <- example_inputs[names(example_inputs) %in%
+                                     c(dynamic, "traits")]
+
+  dims <- get_dims(dynamic_inputs)
 
 
   vector_to_tensor_list <- function(y) {
@@ -73,15 +73,26 @@ eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = TRUE) {
     dy
   }
 
+  ecodyn_one <- function(inputs) {
+    rlang::exec(ecodyn, !!!inputs)
+  }
+
+  if(jit) {
+    ecodyn_one <- torch::jit_trace(ecodyn_one, example_inputs)
+  }
+
 
   ode_fun <- function(t, y, parms, progress = NULL, last_t = NULL) {
     inputs <- vector_to_tensor_list(y)
 
-    inputs <- c(inputs, list(params = parms))
+    inputs <- c(inputs, parms)
 
     inputs$traits$requires_grad <- TRUE
 
-    calc <- rlang::exec(ecodyn, !!!inputs)
+    #calc <- rlang::exec(ecodyn, !!!inputs)
+    calc <- ecodyn_one(inputs)
+
+    names(calc) <- dynamic
 
     sel_grad <- torch::autograd_grad(calc$Ns,
                                      inputs$traits,
@@ -101,11 +112,11 @@ eed_solver <- function(ecodyn, example_inputs = NULL, init_examples = TRUE) {
 
   res <- list(vector_to_tensor_list = vector_to_tensor_list,
               tensor_list_to_vector = tensor_list_to_vector,
-              ode_fun = ode_fun)
-
-  if(init_examples) {
-    res$init <- example_inputs
-  }
+              ode_fun = ode_fun,
+              ecodyn = ecodyn_one,
+              param_names = param_names,
+              dims = dims,
+              example_inputs = example_inputs)
 
   class(res) <- "eed_solver"
   res
@@ -147,4 +158,28 @@ get_dims <- function(example_inputs) {
   starts <- c(0, ends[-length(ends)]) + 1L
   names(starts) <- names(ends)
   list(dims = dims, inds = rbind(starts, ends))
+}
+
+add_evo <- function(inputs) {
+  ode_fun <- function(inputs) {
+    #inputs$traits$requires_grad <- TRUE
+
+    calc <- rlang::exec(ecodyn, !!!inputs)
+    #calc <- do.call(ecodyn, inputs)
+
+    # sel_grad <- torch::autograd_grad(calc[[1]],
+    #                                  inputs[[2]],
+    #                                  torch::torch_ones_like(calc[[1]]))
+    #
+    # dy <- c(calc, list(traits = sel_grad))
+    # dy
+    calc
+
+  }
+
+  if(jit) {
+    ## jit code will go here once torch issue #529 is resolved
+    ode_fun_jit <- torch::jit_trace(ode_fun, inputs)
+  }
+
 }

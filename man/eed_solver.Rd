@@ -4,13 +4,13 @@
 \alias{eed_solver}
 \title{Create a ode solver for ecoevolutionary dynamics from an ode with only ecological dynamics}
 \usage{
-eed_solver(ecodyn, example_inputs = NULL, init_examples = FALSE)
+eed_solver(ecodyn, example_inputs = NULL, jit = FALSE)
 }
 \arguments{
 \item{ecodyn}{A call to the function specifying ecological dynamics with example inputs
 as arguments (see details for how the function should be specified). Can also the function
 itself, or the name of a function (of class character), in which case \code{example_inputs} must
-not be \code{NULL}.}
+not be \code{NULL}. The general form will be \code{ecodyn(Ns, [traits, t, G, ...])}}
 
 \item{example_inputs}{A named list where the names correspond to function arguments
 of the function specified in \code{ecodyn} and the elements are example inputs for those
@@ -18,10 +18,8 @@ arguments that have the dimensions of the desired system (these could be objects
 were using for testing the \code{ecodyn} function, or vectors, matrices or arrays filled with
 \code{NA}s, just make sure they have the correct dimensions, e.g. the first dimension will
 generally have a size equal to the number of species you want to simulate for th
-\code{Ns} and the \code{traits} arguments -- see details).}
-
-\item{init_examples}{Should the \code{example_inputs} be used as default starting values
-for future simulation runs?}
+\code{Ns} and the \code{traits} arguments -- see details). Make sure the \code{example_inputs}
+actually do work because this is necessary to set up the model correctly.}
 }
 \value{
 A set of functions that can be used to simulate the ecoevolutionary system. This
