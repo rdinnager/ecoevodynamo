@@ -3,22 +3,23 @@
 set.seed(321)
 torch_manual_seed(321)
 
-mac_lev <- function(Ns, traits, params, t, ...) {
+mac_lev <- function(Ns, traits, comp, K, r) {
   ## calculate distance between all pairs of species
   dists <- torch_cdist(traits, traits)
-  competition <- torch_exp((-(dists^2) / (2 * params$comp^2)))
-  dN_dt <- params$r * Ns * (1 - (torch_sum(Ns * competition, 2, keepdim = TRUE) / params$K))
+  competition <- torch_exp((-(dists^2) / (2 * comp^2)))
+  dN_dt <- r * Ns * (1 - (torch_sum(Ns * competition, dim = 2, keepdim = TRUE) / K))
 
   return(list(Ns = dN_dt))
 }
 
 N_spec <- 20
 
-Ns <- torch_tensor(matrix(1:N_spec, nrow = N_spec, ncol = 1))
+N_spec <- 20
+
+Ns <- torch_rand(N_spec, 1L)
 ## three traits
 traits <- torch_randn(N_spec, 3)
-
-params <- list(comp = torch_scalar_tensor(0.5),
-               K = torch_scalar_tensor(5),
-               r = torch_scalar_tensor(1))
+comp = torch_scalar_tensor(0.5)
+K = torch_scalar_tensor(5)
+r = torch_scalar_tensor(1)
 

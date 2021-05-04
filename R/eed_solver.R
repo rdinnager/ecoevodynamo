@@ -49,19 +49,44 @@ eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE) {
   assert_ecodyn(ecodyn)
 
   dynamic <- extract_dynamic(ecodyn, example_inputs)
+  using_f <-"df" %in% dynamic
+  if(using_f) {
+    dynamic[dynamic == "df"] <- "N"
+  }
+
   param_names <- names(example_inputs)[!names(example_inputs) %in%
-                                    c(dynamic, "t", "G", "traits")]
+                                    c(dynamic, "t", "G", "X", "X_", "N_", "N")]
+
+  params <- example_inputs[names(example_inputs) %in%
+                             param_names]
 
   dynamic_inputs <- example_inputs[names(example_inputs) %in%
-                                     c(dynamic, "traits")]
+                                     c(dynamic, "X")]
 
   dims <- get_dims(dynamic_inputs)
 
 
+  # vector_to_tensor_list <- function(y) {
+  #   inputs <- setNames(lapply(seq_len(ncol(dims$inds)),
+  #                             function(x)
+  #                               torch::torch_tensor(y[dims$inds[1 , x]:dims$inds[2 , x]])$reshape(dims$dims[[x]])),
+  #                      names(dims$dims))
+  #   inputs
+  # }
+
   vector_to_tensor_list <- function(y) {
     inputs <- setNames(lapply(seq_len(ncol(dims$inds)),
+                              function(x) torch::torch_tensor(
+                                array(y[dims$inds[1 , x]:dims$inds[2 , x]], dims$dims[[x]]))
+                              ),
+                       names(dims$dims))
+    inputs
+  }
+
+  vector_to_R_list <- function(y) {
+    inputs <- setNames(lapply(seq_len(ncol(dims$inds)),
                               function(x)
-                                torch::torch_tensor(y[dims$inds[1 , x]:dims$inds[2 , x]])$reshape(dims$dims[[x]])),
+                                array(y[dims$inds[1 , x]:dims$inds[2 , x]], dims$dims[[x]])),
                        names(dims$dims))
     inputs
   }
@@ -82,28 +107,42 @@ eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE) {
   }
 
 
-  ode_fun <- function(t, y, parms, progress = NULL, last_t = NULL) {
+  ode_fun <- function(t, y, parms, efficiency, progress = NULL, last_t = NULL) {
     inputs <- vector_to_tensor_list(y)
 
     inputs <- c(inputs, parms)
 
-    inputs$traits$requires_grad <- TRUE
+    inputs$X_ <- inputs$X$clone()$detach()
+    inputs$N_ <- inputs$N$clone()$detach()
+
+    inputs$X$requires_grad <- TRUE
 
     #calc <- rlang::exec(ecodyn, !!!inputs)
     calc <- ecodyn_one(inputs)
 
+    if(!using_f) {
+      calc$N <- calc$N / inputs$N
+    }
+
     names(calc) <- dynamic
 
-    sel_grad <- torch::autograd_grad(calc$Ns,
-                                     inputs$traits,
-                                     torch::torch_ones_like(calc$Ns))
+    sel_grad <- torch::autograd_grad(calc$N,
+                                     inputs$X,
+                                     torch::torch_ones_like(calc$N))[[1]]
 
-    dy <- tensor_list_to_vector(c(calc, setNames(sel_grad, "traits")))
+    sel_grad <- sel_grad * inputs$N * efficiency
 
-    .sim_state$current <- inputs
+    if(using_f) {
+      calc$N <- calc$N * inputs$N
+    }
+
+    dy <- tensor_list_to_vector(c(calc, X = sel_grad))
+
+    #.sim_state$current <- inputs
 
     if(!is.null(progress)) {
-      progress$update(t / last_t)
+      done <- min(t / last_t, 0.9999)
+      progress$update(done)
     }
 
     return(list(dy))
@@ -111,12 +150,18 @@ eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE) {
   }
 
   res <- list(vector_to_tensor_list = vector_to_tensor_list,
+              vector_to_R_list = vector_to_R_list,
               tensor_list_to_vector = tensor_list_to_vector,
               ode_fun = ode_fun,
               ecodyn = ecodyn_one,
-              param_names = param_names,
+              params = params,
               dims = dims,
-              example_inputs = example_inputs)
+              example_inputs = example_inputs,
+              current_state = dynamic_inputs,
+              current_time = 0,
+              history = NULL)
+
+  res$current_gradient <- eed_get_gradient(res, "tensors")
 
   class(res) <- "eed_solver"
   res
@@ -183,3 +228,5 @@ add_evo <- function(inputs) {
   }
 
 }
+
+

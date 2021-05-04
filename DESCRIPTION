@@ -21,7 +21,12 @@ Imports:
     progress,
     deSolve,
     rlang (>= 0.1.2),
-    zeallot
+    zeallot,
+    magrittr,
+    tibble,
+    dplyr,
+    ggplot2,
+    gganimate
 Suggests: 
     knitr,
     rmarkdown,
