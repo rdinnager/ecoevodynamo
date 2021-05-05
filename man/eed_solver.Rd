@@ -4,7 +4,7 @@
 \alias{eed_solver}
 \title{Create a ode solver for ecoevolutionary dynamics from an ode with only ecological dynamics}
 \usage{
-eed_solver(ecodyn, example_inputs = NULL, jit = FALSE)
+eed_solver(ecodyn, example_inputs = NULL, jit = FALSE, gpu = FALSE)
 }
 \arguments{
 \item{ecodyn}{A call to the function specifying ecological dynamics with example inputs

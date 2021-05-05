@@ -2,7 +2,8 @@ plot.eed_solver <- function(x, ...) {
   eed_plot_current_state(x, ...)
 }
 
-eed_plot_current_state <- function(solver, plot_gradient = TRUE, choose = c(1, 2)) {
+eed_plot_current_state <- function(solver, plot_gradient = TRUE, choose = c(1, 2),
+                                   scale_grad = 1) {
 
   if(length(choose) > 2) {
     rlang::warn("choose should have length 2 or less. Only the first two element will be used.")
@@ -10,10 +11,10 @@ eed_plot_current_state <- function(solver, plot_gradient = TRUE, choose = c(1, 2
   }
 
   state <- eed_get_state(solver) %>%
-    dplyr::select("Ns", dplyr::all_of(paste0("trait_", choose)))
+    dplyr::select("N", dplyr::all_of(paste0("trait_", choose)))
   colnames(state)[-1] <- c("trait_1", "trait_2")
   if(plot_gradient) {
-    grad <- eed_get_gradient(solver) %>%
+    grad <- eed_get_gradient(solver, scale_grad = scale_grad) %>%
       dplyr::select(dplyr::all_of(paste0("trait_", choose)))
     colnames(grad) <- c("trait_1_grad", "trait_2_grad")
     state <- dplyr::bind_cols(state, grad) %>%
@@ -22,7 +23,7 @@ eed_plot_current_state <- function(solver, plot_gradient = TRUE, choose = c(1, 2
   }
 
   p <- ggplot2::ggplot(state, ggplot2::aes_string("trait_1", "trait_2")) +
-    ggplot2::geom_point(ggplot2::aes_string(size = "Ns")) +
+    ggplot2::geom_point(ggplot2::aes_string(size = "N")) +
     ggplot2::xlab(paste("Trait", choose[1])) +
     ggplot2::ylab(paste("Trait", choose[2])) +
     ggplot2::theme_minimal()
@@ -38,7 +39,12 @@ eed_plot_current_state <- function(solver, plot_gradient = TRUE, choose = c(1, 2
 
 }
 
-eed_animate <- function(solver, ...) {
+#' @importFrom gganimate animate
+animate.eed_solver <- function(plot, ...) {
+  eed_animate(plot, ...)
+}
+
+eed_animate <- function(solver, choose = c(1, 2), ...) {
   hist <- eed_get_history(solver)
 
   a <- ggplot2::ggplot(hist, ggplot2::aes_string("trait_1", "trait_2")) +

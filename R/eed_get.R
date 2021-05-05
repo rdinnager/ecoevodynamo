@@ -70,8 +70,10 @@ convert_state <- function(state, as = c("tbl_df", "tensors", "list"),
 }
 
 eed_get_gradient <- function(solver, as = c("tbl_df", "tensors", "list"),
-                             species_only = as == "tbl_df") {
+                             species_only = as == "tbl_df",
+                             scale_grad = 1) {
   as <- match.arg(as)
+
   gradient <- solver$vector_to_tensor_list(
     solver$ode_fun(1,
                    solver$tensor_list_to_vector(solver$current_state),
@@ -79,24 +81,26 @@ eed_get_gradient <- function(solver, as = c("tbl_df", "tensors", "list"),
                    efficiency = 1)[[1]]
   )
 
+  gradient$X <- gradient$X * scale_grad
+
   gradient <- lapply(gradient, as.array)
 
   if(as == "tbl_df") {
     species_grad <- tibble::as_tibble(
-      as.data.frame(cbind(gradient$Ns, gradient$traits)) %>%
-        setNames(c("Ns", paste0("trait_", seq_len(ncol(gradient$traits)))))
+      as.data.frame(cbind(gradient$N, gradient$X)) %>%
+        setNames(c("N", paste0("trait_", seq_len(ncol(gradient$X)))))
     )
 
-    if(!species_only & any(!names(gradient) %in% c("Ns", "traits"))) {
+    if(!species_only & any(!names(gradient) %in% c("N", "X"))) {
       state <- list(species = species_grad,
-                    other = gradient[!names(gradient) %in% c("Ns", "traits")])
+                    other = gradient[!names(gradient) %in% c("N", "X")])
     } else {
       gradient <- species_grad
     }
   }
 
   if(as == "list" & species_only) {
-    gradient <- gradient[c("Ns", "traits")]
+    gradient <- gradient[c("N", "X")]
   }
 
   gradient

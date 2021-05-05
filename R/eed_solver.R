@@ -40,7 +40,7 @@
 #' params <- list(comp = torch_scalar_tensor(0.5),
 #'                K = torch_scalar_tensor(5),
 #'                r = torch_scalar_tensor(1))
-eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE) {
+eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE, gpu = FALSE) {
 
   ecodyn_quo <- rlang::enquo(ecodyn)
 
@@ -104,8 +104,8 @@ eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE) {
 
   if(jit) {
     ecodyn_one <- torch::jit_trace(ecodyn_one, example_inputs)
+    input_names <- names(example_inputs)
   }
-
 
   ode_fun <- function(t, y, parms, efficiency, progress = NULL, last_t = NULL) {
     inputs <- vector_to_tensor_list(y)
@@ -115,7 +115,15 @@ eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE) {
     inputs$X_ <- inputs$X$clone()$detach()
     inputs$N_ <- inputs$N$clone()$detach()
 
+    if(jit) {
+      inputs <- inputs[input_names]
+    }
+
     inputs$X$requires_grad <- TRUE
+
+    if(gpu) {
+      lapply(inputs, function(x) x$cuda())
+    }
 
     #calc <- rlang::exec(ecodyn, !!!inputs)
     calc <- ecodyn_one(inputs)

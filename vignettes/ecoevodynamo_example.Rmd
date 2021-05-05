@@ -38,7 +38,7 @@ mac_lev <- function(N, N_, X, X_, comp, K, r) {
 Now, some parts of that function will need further explanation as you may not be that familiar with `torch` yet. For one thing, for efficiency and to simplify the code it takes advantage of `torch`'s 'broadcasting' rules. The expression in question is `Ns * competition`. The first thing you need to know is that `torch_cdist()` is a function which calculates a pairwise distance matrix on tensors, such that `competition` will be an `nrow(traits) * nrow(traits)` matrix, each element `competition[i, j]` of which gives the competition coefficient between species `i` and species `j`. To see how broadcasting works, let's create some example objects that we will run our function on. We need our species population size matrix `Ns`, our species traits matrix `traits`, and a list of model parameters `params`. In order to work with `torch` we need to use `torch` 'tensors', a data structure similar to an array in R. Tensors are easy to create from R objects -- just use `torch_tensor`. We will setup a system of 20 species for testing.
 
 ```{r setup_test_tensors}
-N_spec <- 10
+N_spec <- 100
 
 Ns <- torch_rand(N_spec, 1L)
 ## two traits
@@ -110,10 +110,22 @@ ode_test
 
 ecoevodynamo:::plot.eed_solver(test)
 
-ode_test <- eed_run(test2, 1:500)
+ode_test <- eed_run(test, 1:500)
 
 ecoevodynamo:::eed_animate(ode_test, nframes = 500, fps = 20,
                            device = "ragg_png")
+
+no_jit_no_gpu <- eed_solver(mac_lev(Ns, Ns, traits, traits, comp, K, r), jit = FALSE, gpu = FALSE)
+yes_jit_no_gpu <- eed_solver(mac_lev(Ns, Ns, traits, traits, comp, K, r), jit = TRUE, gpu = FALSE)
+
+no_jit_yes_gpu <- eed_solver(mac_lev(Ns, Ns, traits, traits, comp, K, r), jit = FALSE, gpu = TRUE)
+yes_jit_yes_gpu <- eed_solver(mac_lev(Ns, Ns, traits, traits, comp, K, r), jit = TRUE, gpu = TRUE)
+
+times <- bench::mark(no_jit_no_gpu %>% eed_run(1:100),
+                     yes_jit_no_gpu %>% eed_run(1:100),
+                     no_jit_yes_gpu %>% eed_run(1:100), 
+                     yes_jit_yes_gpu %>% eed_run(1:100),
+                     check = FALSE)
 
 ```
 
