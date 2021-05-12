@@ -26,7 +26,8 @@ Imports:
     tibble,
     dplyr,
     ggplot2,
-    gganimate
+    gganimate,
+    prettycode
 Suggests: 
     knitr,
     rmarkdown,

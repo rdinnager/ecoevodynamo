@@ -82,33 +82,7 @@ Indeed, it returns a list of a single tensor of the same shape as `Ns`, with the
 test <- eed_solver(mac_lev(Ns, Ns, traits, traits, comp, K, r), jit = TRUE)
 test2 <- eed_solver(mac_lev(Ns, Ns, traits, traits, comp, K, r), jit = FALSE)
 
-time <- bench::mark(
-  res <- test$ode_fun(1,
-               test$tensor_list_to_vector(list(Ns = Ns, traits = traits)),
-               list(comp = comp, K = K, r = r)),
-  res <- test2$ode_fun(1,
-               test2$tensor_list_to_vector(list(Ns = Ns, traits = traits)),
-               list(comp = comp, K = K, r = r)),
-  min_time = Inf,
-  max_iterations = 1000
-)
-
-test$vector_to_tensor_list(res[[1]])
-
-pr <- progress::progress_bar$new(total = 100)
-
-ode_test <- deSolve::ode(test$tensor_list_to_vector(list(Ns = Ns, traits = traits)),
-                         c(1:50),
-                         test$ode_fun,
-                         list(comp = comp, K = K, r = r),
-                         progress = pr,
-                         last_t = 50)
-
-pr$update(1.0)
-
-ode_test
-
-ecoevodynamo:::plot.eed_solver(test)
+ecoevodynamo:::plot.eed_solver(test, scale_grad = 0.2)
 
 ode_test <- eed_run(test, 1:500)
 
@@ -129,8 +103,44 @@ times <- bench::mark(no_jit_no_gpu %>% eed_run(1:100),
 
 ```
 
+## Four Ways to Model Write the Model
 
+```{r test_4_ways}
+mac_lev1 <- function(N, N_, X, X_, comp, K, r) {
+  ## calculate distance between all pairs of species
+  dists <- torch_cdist(X, X_)
+  competition <- torch_exp((-(dists^2) / (2 * comp^2)))
+  weighted_pop <- torch_unsqueeze(torch_sum(N_ * competition, dim = 1), 2)
+  dN_dt <- r * (1 - (weighted_pop / K))
+  
+  return(list(df = dN_dt))
+}
 
+mac_lev2 <- function(N, N_, X, X_, comp, K, r) {
+  ## calculate distance between all pairs of species
+  dists <- torch_cdist(X, X_)
+  competition <- torch_exp((-(dists^2) / (2 * comp^2)))
+  weighted_pop <- torch_mm(competition, N_)
+  dN_dt <- r * (1 - (weighted_pop / K))
+  
+  return(list(df = dN_dt))
+}
+
+times <- bench::mark(mac_lev1(Ns, Ns, traits, traits, comp, K, r),
+                     mac_lev2(Ns, Ns, traits, traits, comp, K, r))
+
+no_jit_no_gpu <- eed_solver(mac_lev2(Ns, Ns, traits, traits, comp, K, r), jit = FALSE, gpu = FALSE)
+yes_jit_no_gpu <- eed_solver(mac_lev2(Ns, Ns, traits, traits, comp, K, r), jit = TRUE, gpu = FALSE)
+
+no_jit_yes_gpu <- eed_solver(mac_lev2(Ns, Ns, traits, traits, comp, K, r), jit = FALSE, gpu = TRUE)
+yes_jit_yes_gpu <- eed_solver(mac_lev2(Ns, Ns, traits, traits, comp, K, r), jit = TRUE, gpu = TRUE)
+
+times <- bench::mark(no_jit_no_gpu %>% eed_run(1:100),
+                     yes_jit_no_gpu %>% eed_run(1:100),
+                     no_jit_yes_gpu %>% eed_run(1:100), 
+                     yes_jit_yes_gpu %>% eed_run(1:100),
+                     check = FALSE)
+```
 
 
 

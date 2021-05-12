@@ -1,6 +1,7 @@
 CMD
 Codecov
 Ecoevolutionary
+JIT
 Levins
 Lifecycle
 Lotka
@@ -8,12 +9,17 @@ Macarthur
 Metaprogramming
 Ns
 ODEs
+ORCID
 Volterra
 behaviour
+dN
 eco
+ecodynamo
 ecoevolutionary
+eed
 eval
 frac
+magrittr
 multispecies
 nd
 optimised

@@ -1,0 +1,32 @@
+---
+title: "Getting Started with ecoevodynamo"
+author: "Russell Dinnage"
+date: "07/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup}
+library(ecoevodynamo)
+```
+
+## An Ecological Model: MacArthur-Levins Competition
+
+```{r example_model}
+
+eed_eco({
+  dists <- torch_cdist(X, X_)
+  competition <- torch_exp((-(dists^2) / (2 * comp^2)))
+  weighted_pop <- torch_mm(competition, N_)
+  df_dt <- r * (1 - (weighted_pop / K))
+  list(df = df_dt)
+}) -> test
+
+print(test)
+
+```
+
+
