@@ -22,7 +22,7 @@ eed_eco({
   competition <- torch_exp((-(dists^2) / (2 * comp^2)))
   weighted_pop <- torch_mm(competition, N_)
   df_dt <- r * (1 - (weighted_pop / K))
-  list(df = df_dt)
+  list(f = df_dt)
 }) -> test
 
 print(test)

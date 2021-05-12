@@ -30,11 +30,15 @@ expr_to_fun <- function(expr) {
   expr2 <- rlang::enexpr(expr)
   vars <- all.vars(expr2)
   locals <- codetools::findLocals(expr2, rlang::base_env())
-  arg_names <- union(setdiff(vars, locals), c("N", "N_", "X", "X_"))
+  vars <- setdiff(vars, locals)
+  arg_names <- union(vars, c("N", "N_", "X", "X_"))
   args <- replicate(length(arg_names), rlang::missing_arg())
   names(args) <- arg_names
   fun <- rlang::new_function(rlang::pairlist2(!!!args),
                              expr2)
+
+  attr(fun, "vars") <- vars
+  attr(fun, "arg_names") <- arg_names
 
   fun
 }

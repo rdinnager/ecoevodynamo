@@ -34,7 +34,16 @@
 #' })
 eed_eco <- function(expr) {
   expr <- rlang::enexpr(expr)
+  ret_line <- expr[[length(expr)]]
+  if(!rlang::is_call(ret_line)) {
+    rlang::abort("The last line of input expression must be a call to `list`")
+  }
+  if(rlang::as_name(ret_line[[1]]) != "list") {
+    rlang::abort("The last line of input expression must be a call to `list`")
+  }
+  returns <- rlang::call_args_names(expr[[length(expr)]])
   fun <- expr_to_fun(!!expr)
+  attr(fun, "returns") <- returns
   class(fun) <- c("eed_eco", "function")
   fun
 }
@@ -50,7 +59,9 @@ eed_eco <- function(expr) {
 #' @examples
 print.eed_eco <- function(x, ...) {
   body_txt <- rlang::expr_deparse(rlang::fn_body(x))
-  cat(prettycode::highlight(body_txt), sep = "\n")
+  body_txt <- prettycode::highlight(body_txt)
+  body_txt <- body_txt[c(-1, -length(body_txt))]
+  cat(body_txt, sep = "\n")
 }
 
 #' Create an ecodynamo object for running an ecological dynamics ODE system.
