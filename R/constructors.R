@@ -58,9 +58,15 @@ eed_eco <- function(expr) {
 #'
 #' @examples
 print.eed_eco <- function(x, ...) {
+
+  vars <- attr(x, "vars")
+
+  special <- vars[vars %in% c("X", "X_", "N", "N_")]
+
   body_txt <- rlang::expr_deparse(rlang::fn_body(x))
   body_txt <- prettycode::highlight(body_txt)
   body_txt <- body_txt[c(-1, -length(body_txt))]
+
   cat(body_txt, sep = "\n")
 }
 
@@ -93,6 +99,29 @@ print.eed_eco <- function(x, ...) {
 #'
 #' @examples
 eed_ecodynamo <- function(eco, example_inputs, jit = FALSE, gpu = FALSE) {
+
+  ecodyn_quo <- rlang::enquo(ecodyn)
+
+  c(ecodyn, example_inputs) %<-% extract_examples(ecodyn_quo, example_inputs)
+
+  assert_ecodyn(ecodyn)
+
+  dynamic <- extract_dynamic(ecodyn, example_inputs)
+  using_f <-"df" %in% dynamic
+  if(using_f) {
+    dynamic[dynamic == "df"] <- "N"
+  }
+
+  param_names <- names(example_inputs)[!names(example_inputs) %in%
+                                         c(dynamic, "t", "G", "X", "X_", "N_", "N")]
+
+  params <- example_inputs[names(example_inputs) %in%
+                             param_names]
+
+  dynamic_inputs <- example_inputs[names(example_inputs) %in%
+                                     c(dynamic, "X")]
+
+  dims <- get_dims(dynamic_inputs)
 
 }
 

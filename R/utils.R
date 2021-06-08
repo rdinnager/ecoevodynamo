@@ -10,37 +10,23 @@ assert_ecodyn <- function(ecodyn) {
 }
 
 extract_dynamic <- function(ecodyn, example_inputs) {
-  res <- rlang::exec(ecodyn, !!!example_inputs)
-  names(res)
-}
 
-eed_out <- function(...) {
-  vars <- list(...)
-  if(!any(names(vars) == "")) {
-    return(vars)
+  if(eed_is_eco(ecodyn)) {
+    rets <- attr(ecodyn, "returns")
+    argus <- attr(ecodyn, "arg_names")
+    res <- rets[stringr::str_remove(rets, "^d") %in% argus]
   } else {
-    globals <- vars[names(vars) == ""]
-    c(vars[names(vars) != ""], globals = globals)
+    res <- names(rlang::exec(ecodyn, !!!example_inputs))
   }
+
+  res
 }
 
-#' @importFrom codetools findLocals
-expr_to_fun <- function(expr) {
-
-  expr2 <- rlang::enexpr(expr)
-  vars <- all.vars(expr2)
-  locals <- codetools::findLocals(expr2, rlang::base_env())
-  vars <- setdiff(vars, locals)
-  arg_names <- union(vars, c("N", "N_", "X", "X_"))
-  args <- replicate(length(arg_names), rlang::missing_arg())
-  names(args) <- arg_names
-  fun <- rlang::new_function(rlang::pairlist2(!!!args),
-                             expr2)
-
-  attr(fun, "vars") <- vars
-  attr(fun, "arg_names") <- arg_names
-
-  fun
+get_dims <- function(example_inputs) {
+  dims <- lapply(example_inputs, dim)
+  ends <- cumsum(sapply(dims, prod))
+  starts <- c(0, ends[-length(ends)]) + 1L
+  names(starts) <- names(ends)
+  list(dims = dims, inds = rbind(starts, ends))
 }
-
 

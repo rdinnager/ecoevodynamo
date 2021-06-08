@@ -177,20 +177,30 @@ eed_solver <- function(ecodyn, example_inputs = NULL, jit = FALSE, gpu = FALSE) 
 }
 
 extract_examples <- function(ecodyn_quo, example_inputs = NULL) {
+
   if(rlang::quo_is_call(ecodyn_quo)) {
-    ## generate example input from call arguments
-    if(is.null(example_inputs)) {
-      ecodyn_quo <- rlang::call_standardise(ecodyn_quo)
-      example_inputs <- lapply(rlang::call_args(ecodyn_quo),
-                               rlang::eval_tidy,
-                               env = rlang::quo_get_env(ecodyn_quo))
-      ecodyn_fun <- rlang::call_fn(ecodyn_quo)
+
+    if(rlang::quo_get_expr(ecodyn_quo)[[1]] == "{") {
+      ecodyn_fun <- eed_eco(rlang::quo_get_expr(ecodyn_quo))
     } else {
-      ## example inputs provided so just use the call to find function
-      ecodyn_fun <- rlang::call_fn(ecodyn_quo)
+
+      ## generate example input from call arguments
+      if(is.null(example_inputs)) {
+        ecodyn_quo <- rlang::call_standardise(ecodyn_quo)
+        example_inputs <- lapply(rlang::call_args(ecodyn_quo),
+                                 rlang::eval_tidy,
+                                 env = rlang::quo_get_env(ecodyn_quo))
+        ecodyn_fun <- rlang::call_fn(ecodyn_quo)
+      } else {
+        ## example inputs provided so just use the call to find function
+        ecodyn_fun <- rlang::call_fn(ecodyn_quo)
+      }
     }
   } else {
     ecodyn_eval <- rlang::eval_tidy(ecodyn_quo)
+    if(inherits(ecodyn_eval, "eed_eco")) {
+      return()
+    }
     if(rlang::is_function(ecodyn_eval)) {
       ecodyn_fun <- ecodyn_eval
     } else {
@@ -202,16 +212,12 @@ extract_examples <- function(ecodyn_quo, example_inputs = NULL) {
     }
   }
 
+  class(ecodyn_fun) <- "eed_eco"
+
   list(ecodyn_fun, example_inputs)
 }
 
-get_dims <- function(example_inputs) {
-  dims <- lapply(example_inputs, dim)
-  ends <- cumsum(sapply(dims, prod))
-  starts <- c(0, ends[-length(ends)]) + 1L
-  names(starts) <- names(ends)
-  list(dims = dims, inds = rbind(starts, ends))
-}
+
 
 add_evo <- function(inputs) {
   ode_fun <- function(inputs) {

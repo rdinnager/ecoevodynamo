@@ -27,7 +27,8 @@ Imports:
     dplyr,
     ggplot2,
     gganimate,
-    prettycode
+    prettycode,
+    stringr
 Suggests: 
     knitr,
     rmarkdown,
